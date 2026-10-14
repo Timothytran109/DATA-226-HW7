@@ -1,27 +1,30 @@
 import pandas as pd
 from datasets import load_dataset
-from pyspark.sql import SparkSession
 from pyspark.ml import Pipeline
-from pyspark.ml.feature import Tokenizer, StopWordsRemover, HashingTF, IDF
 from pyspark.ml.classification import LogisticRegression
 from pyspark.ml.evaluation import MulticlassClassificationEvaluator
+from pyspark.ml.feature import IDF, HashingTF, StopWordsRemover, Tokenizer
+from pyspark.sql import SparkSession
 
 # Initialize Spark
-spark = SparkSession.builder \
-    .appName("Homework_Grading_Demo") \
-    .config("spark.driver.memory", "4g") \
+spark = (
+    SparkSession.builder.appName("Homework_Grading_Demo")
+    .config("spark.driver.memory", "4g")
     .getOrCreate()
+)
 
 # Suppress noisy INFO logs so your print statements stand out
 spark.sparkContext.setLogLevel("ERROR")
 
+
 def log_step(step_num, title):
-    print(f"\n{'='*20} STEP {step_num}: {title} {'='*20}")
+    print(f"\n{'=' * 20} STEP {step_num}: {title} {'=' * 20}")
+
 
 # --- 1. Dataset Loading & Exploration ---
 log_step(1, "Dataset Loading & Exploration")
-dataset = load_dataset("imdb") # Change it for HW
-df_pd = pd.DataFrame(dataset['train'])
+dataset = load_dataset("rotten_tomatoes")  # Change it for HW
+df_pd = pd.DataFrame(dataset["train"])
 spark_df = spark.createDataFrame(df_pd)
 
 print(f"Check 1.1: Dataset Loaded. Total rows: {spark_df.count()}")
@@ -31,16 +34,27 @@ spark_df.show(5)
 
 # --- 2. Data Preprocessing in Spark ---
 log_step(2, "Data Preprocessing in Spark")
+
+# Verify Spark DataFrame
+print("Check 2.1: Dataset converted to Spark DataFrame")
+spark_df.printSchema()
+
 # Tokenization + Stopword Removal
 tokenizer = Tokenizer(inputCol="text", outputCol="words")
 remover = StopWordsRemover(inputCol="words", outputCol="filtered")
 
+print("Check 2.2: Tokenizer + StopWordsRemover defined")
+
 # Feature extraction (TF-IDF)
 hashingTF = HashingTF(inputCol="filtered", outputCol="rawFeatures", numFeatures=5000)
+
 idf = IDF(inputCol="rawFeatures", outputCol="features")
 
-print("Check 2.1: Pipeline stages defined (Tokenizer -> Remover -> TF-IDF)")
-# (Note: Logic is applied during training in the Pipeline)
+print("Check 2.3: TF-IDF feature extraction defined")
+
+# Verify labels
+print("Check 2.4: Label values (should be 0 and 1)")
+spark_df.select("label").distinct().orderBy("label").show()
 
 # --- 3. Model Training & Evaluation ---
 log_step(3, "Model Training & Evaluation")
@@ -71,7 +85,8 @@ print(f"Check 4.1: Saved trained pipeline to '{model_path}'")
 
 # Load and run sample prediction
 from pyspark.ml import PipelineModel
-print(f"Load the saved model")
+
+print("Load the saved model")
 loaded_model = PipelineModel.load(model_path)
 sample_text = spark.createDataFrame([("Brilliant and well-acted!",)], ["text"])
 sample_pred = loaded_model.transform(sample_text)
@@ -79,6 +94,6 @@ sample_pred = loaded_model.transform(sample_text)
 print("Check 4.2: Inference on sample text:")
 sample_pred.select("text", "prediction").show()
 
-print("\n" + "*"*50)
+print("\n" + "*" * 50)
 print("DEMO LOGS COMPLETE")
-print("*"*50)
+print("*" * 50)

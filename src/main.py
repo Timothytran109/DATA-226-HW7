@@ -1,7 +1,7 @@
+import uvicorn
 from fastapi import FastAPI
 from pyspark.ml import PipelineModel
 from pyspark.sql import SparkSession
-import uvicorn
 
 app = FastAPI(title="Spark ML Sentiment API")
 
